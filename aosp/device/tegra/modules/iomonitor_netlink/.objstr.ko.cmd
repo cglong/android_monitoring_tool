@@ -1,0 +1,1 @@
+cmd_/home/joon/Desktop/AOSP/device/tegra/modules/netlink/objstr.ko := arm-eabi-ld -EL -r  -T /home/joon/Desktop/AOSP/device/tegra/scripts/module-common.lds --build-id  -o /home/joon/Desktop/AOSP/device/tegra/modules/netlink/objstr.ko /home/joon/Desktop/AOSP/device/tegra/modules/netlink/objstr.o /home/joon/Desktop/AOSP/device/tegra/modules/netlink/objstr.mod.o

@@ -5,28 +5,48 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #define NETLINK_IOMONITOR 17
-#define MAX_PAYLOAD 1024 //Maximum payload size
+#define MAX_PAYLOAD 100000 //Maximum payload size
+#define MAX_RINGBUF_SIZE  10
 
 struct sockaddr_nl src_addr, dest_addr;
 struct nlmsghdr *nlh = NULL;
 struct iovec iov;
 int sock_fd;
 struct msghdr msg;
+
+
 struct io_monitor_data {
-	int opcode;
+	char opcode[6];
+	char process[16];
+	int pid;
 	int address;
 	int blocks;
+	int tm_mon;
+	int tm_mday;
+	int tm_year;
+	int tm_hour;
+	int tm_min;
+	int tm_sec;
+	long int tm_usec;
 };
+
 
 int main()
 {
+	FILE *fd2;
+	int i;
+	
 	/*Create Socket
 	 * int domain:PF_NETLINK = domain of socket to create (netlink - socket used for kernel to userspace communication)
 	 * int type:SOCK_RAW = type of socket to create (SOCK_RAW - raw protocol..might have to change this later for photos)
-	 * NETLINK_NITRO = developer defined NETLINK protocol (I defined this in the kernel module, here, and linux/netlink.h)
-	 * I used 17 for the NITRO macro since it was the next available integer
+	 * NETLINK_IOMONITOR = developer defined NETLINK protocol (I defined this in the kernel module, here, and linux/netlink.h)
+	 * I used 17 for the IOMONITOR macro since it was the next available integer
 	 */
 	sock_fd=socket(PF_NETLINK, SOCK_RAW, NETLINK_IOMONITOR);
 	
@@ -70,8 +90,30 @@ int main()
 	printf("Waiting for message from kernel\n");
 
 	/* Read message from kernel */
-	recvmsg(sock_fd, &msg, 0);	
-	printf("Received message payload: %x\n", ((struct io_monitor_data *)NLMSG_DATA(nlh))->opcode);
-	close(sock_fd);
+	recvmsg(sock_fd, &msg, 0);
+	printf("Received message payload:\n");
+	fd2 = fopen("/sdcard/iomonitor_log.csv", "a");
+	if (fd2 < 0) {
+		printf("Couldn't create a file in /data/local'");
+    }
+	for(i=0;i<(sizeof(struct io_monitor_data)*MAX_RINGBUF_SIZE);i+=sizeof(struct io_monitor_data)){
+		fprintf(fd2,"Op:%s\nProcess:%s\nPID:%d\nAddress:%x\nBlocks:%x\nTimestamp:%d/%d/%d %d:%d:%d:%ld\n\n", 
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->opcode,
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->process,
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->pid,
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->address,
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->blocks,
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->tm_mon,
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->tm_mday,
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->tm_year,
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->tm_hour,
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->tm_min,
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->tm_sec,
+		   ((struct io_monitor_data *)(NLMSG_DATA(nlh)+i))->tm_usec
+		);
+	}
+	fclose(fd2);
+		
+	
 	return 0;
 }
